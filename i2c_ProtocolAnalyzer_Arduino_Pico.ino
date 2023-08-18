@@ -4,6 +4,7 @@
 
 constexpr int SDA_PIN = 0;
 constexpr int SCL_PIN = 1;
+constexpr int MONITOR_PIN = 2;
 
 constexpr int TRANSACTION_CAPTURE_LENGTH = 64;
 constexpr int TRANSACTION_MAX_BYTE_LENGTH = 128;
@@ -60,7 +61,7 @@ void setup() {
 
   pinMode(SDA_PIN, INPUT_PULLUP);
   pinMode(SCL_PIN, INPUT_PULLUP);
-  pinMode(2, OUTPUT);
+  pinMode(MONITOR_PIN, OUTPUT);
 
   zprintf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
 }
@@ -93,7 +94,7 @@ void loop() {
     prev_scl = scl;
 
     if (!(count & SAMPLINF_MONITOR_PERIOD))
-      gpio_put(2, (toggle = !toggle));
+      gpio_put(MONITOR_PIN, (toggle = !toggle));
 
     count++;
   }
