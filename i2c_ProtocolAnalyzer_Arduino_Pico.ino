@@ -1,5 +1,3 @@
-#include <stdarg.h>
-
 constexpr int SDA_PIN = 0;
 constexpr int SCL_PIN = 1;
 
@@ -35,12 +33,13 @@ void setup() {
   while (!Serial)
     ;
 
-  zprintf("Hello, world!");
-
   pinMode(SDA_PIN, INPUT_PULLUP);
   pinMode(SCL_PIN, INPUT_PULLUP);
   pinMode(2, OUTPUT);
+
+  zprintf("captureing %d transactions\n", CAPTURE_LENGTH);
 }
+
 #define SAMPLINF_MONITOR_PERIOD 0xF
 void loop() {
   int all;
@@ -91,11 +90,12 @@ inline void pin_state_change(int sda, int ss) {
 
       transaction_count++;
 
-      zprintf("tr: %2d\n", transaction_count);
+//      zprintf("tr: %2d\n", transaction_count);
 
       if (CAPTURE_LENGTH < transaction_count) {
         show_transactions(CAPTURE_LENGTH);
         transaction_count = 0;
+        zprintf("captureing %d transactions\n", CAPTURE_LENGTH);
       }
 
     } else {
@@ -150,7 +150,7 @@ void show_transactions(int length) {
     for (int j = 1; j < t->length; j++)
       zprintf(" 0x%02X[%c]", t->data_byte[j].data, t->data_byte[j].ack ? 'N' : 'A');
 
-    zprintf("%s\n", t->stop ? " [P]": "");
+    zprintf("%s\n", t->stop ? " [P]" : "");
   }
 }
 
