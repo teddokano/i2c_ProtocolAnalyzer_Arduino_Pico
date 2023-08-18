@@ -37,15 +37,25 @@ void setup() {
 
   pinMode(SDA_PIN, INPUT_PULLUP);
   pinMode(SCL_PIN, INPUT_PULLUP);
+  pinMode(2, OUTPUT);
 }
-
+#define SAMPLINF_MONITOR_PERIOD 0xF
 void loop() {
+  int all;
   int sda;
   int scl;
-
+  int count = 0;
+  int toggle = false;
   while (true) {
+
+#if 0
     sda = gpio_get(SDA_PIN);
     scl = gpio_get(SCL_PIN);
+#else
+    all = gpio_get_all();
+    sda = all & 0x01;
+    scl = (all >> 1) & 0x1;
+#endif
 
     if ((prev_sda != sda) && (prev_scl && scl))
       pin_state_change(sda, true);
@@ -54,11 +64,14 @@ void loop() {
 
     prev_sda = sda;
     prev_scl = scl;
+
+    if (!(count & SAMPLINF_MONITOR_PERIOD))
+      gpio_put(2, toggle = !toggle);
+
+
+    count++;
   }
 }
-
-
-
 
 inline void pin_state_change(int sda, int ss) {
   static pa_status state = FREE;
@@ -120,9 +133,9 @@ void show_transactions(int length) {
     zprintf("#%2d (%2d) : [S]", i, t->length - 1);
 
 
-    addr  = &(t->data_byte[0]);
-    
-//    zprintf(" 0x%02X(%02X)%c[%c]", addr->data & ~0x01, addr->data >> 1, (addr->data) & 0x01 ? 'R' : 'W', addr->ack ? 'N' : 'A');
+    addr = &(t->data_byte[0]);
+
+    //    zprintf(" 0x%02X(%02X)%c[%c]", addr->data & ~0x01, addr->data >> 1, (addr->data) & 0x01 ? 'R' : 'W', addr->ack ? 'N' : 'A');
     zprintf(" 0x%02X-%c[%c]", addr->data & ~0x01, (addr->data) & 0x01 ? 'R' : 'W', addr->ack ? 'N' : 'A');
 
     for (int j = 1; j < t->length; j++)
@@ -131,7 +144,6 @@ void show_transactions(int length) {
     zprintf(" [P]\n");
   }
 }
-
 
 #define MAX_STR_LENGTH 120
 void zprintf(const char *format, ...) {
