@@ -21,6 +21,8 @@ typedef struct {
 typedef struct {
   data_ack data_byte[64];
   int length;
+  int repeated_start;
+  int stop;
 } transactions;
 
 transactions tr[64];
@@ -79,10 +81,14 @@ inline void pin_state_change(int sda, int ss) {
   static int byte_count;
   static int transaction_count = 0;
   static transactions *t;
+  static int repeated_start_flag = 0;
 
   if (ss) {
     if (sda) {
       state = FREE;
+
+      (tr + transaction_count)->stop = true;
+
       transaction_count++;
 
       zprintf("tr: %2d\n", transaction_count);
@@ -93,14 +99,19 @@ inline void pin_state_change(int sda, int ss) {
       }
 
     } else {
-      if (FREE != state)
+      if (FREE != state) {
         transaction_count++;
+        (tr + transaction_count)->repeated_start = true;
+      } else {
+        (tr + transaction_count)->repeated_start = false;
+      }
 
       state = START;
       bit_count = 0;
       byte_count = 0;
 
       t = tr + transaction_count;
+      t->stop = false;
     }
     return;
   }
@@ -108,12 +119,13 @@ inline void pin_state_change(int sda, int ss) {
   if (START == state) {
     switch (bit_count) {
       case 8:
-        t->data_byte[byte_count].ack = sda;
+        t->data_byte[byte_count].ack |= sda;
         byte_count++;
         t->length = byte_count;
         break;
       case 0:
         t->data_byte[byte_count].data = (sda & 0x1) << 7;
+        t->data_byte[byte_count].ack = repeated_start_flag;
         break;
       default:
         t->data_byte[byte_count].data |= (sda & 0x1) << (7 - bit_count);
@@ -130,18 +142,15 @@ void show_transactions(int length) {
 
   for (int i = 0; i < length; i++) {
     t = tr + i;
-    zprintf("#%2d (%2d) : [S]", i, t->length - 1);
-
-
     addr = &(t->data_byte[0]);
 
-    //    zprintf(" 0x%02X(%02X)%c[%c]", addr->data & ~0x01, addr->data >> 1, (addr->data) & 0x01 ? 'R' : 'W', addr->ack ? 'N' : 'A');
+    zprintf("#%2d (%2d) : [%c]", i, t->length - 1, t->repeated_start ? 'R' : 'S');
     zprintf(" 0x%02X-%c[%c]", addr->data & ~0x01, (addr->data) & 0x01 ? 'R' : 'W', addr->ack ? 'N' : 'A');
 
     for (int j = 1; j < t->length; j++)
       zprintf(" 0x%02X[%c]", t->data_byte[j].data, t->data_byte[j].ack ? 'N' : 'A');
 
-    zprintf(" [P]\n");
+    zprintf("%s\n", t->stop ? " [P]": "");
   }
 }
 
