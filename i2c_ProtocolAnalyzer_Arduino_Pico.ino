@@ -1,15 +1,22 @@
+/*
+ *  Constants
+ */
+
 constexpr int SDA_PIN = 0;
 constexpr int SCL_PIN = 1;
 
-int prev_sda = 1;
-int prev_scl = 1;
-
-#define CAPTURE_LENGTH 10
+constexpr int TRANSACTION_CAPTURE_LENGTH = 64;
+constexpr int TRANSACTION_MAX_BYTE_LENGTH = 128;
+constexpr int CAPTURE_LENGTH = 10;
 
 enum pa_status : int {
   FREE = 0,
   START,
 };
+
+/*
+ *  Allocating static (global) memory for data capturing
+ */
 
 typedef struct {
   uint8_t data;
@@ -17,30 +24,49 @@ typedef struct {
 } data_ack;
 
 typedef struct {
-  data_ack data_byte[64];
+  data_ack data_byte[TRANSACTION_MAX_BYTE_LENGTH];
   int length;
   int repeated_start;
   int stop;
-} transactions;
+} transaction;
 
-transactions tr[64];
+transaction tr[TRANSACTION_CAPTURE_LENGTH];
+
+int prev_sda = 1;
+int prev_scl = 1;
+int total_count = 0;
+
+/*
+ *  Prototypes
+ */
 
 inline void pin_state_change(int sda, int startstop = false);
+void show_transactions(int length);
 void zprintf(const char *format, ...);
+
+/*
+ *  Program body
+ */
 
 void setup() {
   Serial.begin(115200);
   while (!Serial)
     ;
 
+  zprintf("I2C protocol analyzer started\n");
+  zprintf("  transaction captureing depth    = %6d\n", TRANSACTION_CAPTURE_LENGTH);
+  zprintf("  transaction maximum byte length = %6d\n", TRANSACTION_MAX_BYTE_LENGTH);
+  zprintf("  memory size for data capturing  = %6d\n", sizeof(tr));
+
   pinMode(SDA_PIN, INPUT_PULLUP);
   pinMode(SCL_PIN, INPUT_PULLUP);
   pinMode(2, OUTPUT);
 
-  zprintf("captureing %d transactions\n", CAPTURE_LENGTH);
+  zprintf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
 }
 
 #define SAMPLINF_MONITOR_PERIOD 0xF
+
 void loop() {
   int all;
   int sda;
@@ -67,8 +93,7 @@ void loop() {
     prev_scl = scl;
 
     if (!(count & SAMPLINF_MONITOR_PERIOD))
-      gpio_put(2, toggle = !toggle);
-
+      gpio_put(2, (toggle = !toggle));
 
     count++;
   }
@@ -79,7 +104,7 @@ inline void pin_state_change(int sda, int ss) {
   static int bit_count;
   static int byte_count;
   static int transaction_count = 0;
-  static transactions *t;
+  static transaction *t;
   static int repeated_start_flag = 0;
 
   if (ss) {
@@ -90,12 +115,12 @@ inline void pin_state_change(int sda, int ss) {
 
       transaction_count++;
 
-//      zprintf("tr: %2d\n", transaction_count);
+      //      zprintf("tr: %2d\n", transaction_count);
 
       if (CAPTURE_LENGTH < transaction_count) {
         show_transactions(CAPTURE_LENGTH);
         transaction_count = 0;
-        zprintf("captureing %d transactions\n", CAPTURE_LENGTH);
+        zprintf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
       }
 
     } else {
@@ -137,7 +162,7 @@ inline void pin_state_change(int sda, int ss) {
 }
 
 void show_transactions(int length) {
-  transactions *t;
+  transaction *t;
   data_ack *addr;
 
   for (int i = 0; i < length; i++) {
