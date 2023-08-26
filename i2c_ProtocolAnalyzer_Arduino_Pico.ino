@@ -32,6 +32,9 @@ typedef struct {
 } transaction;
 
 transaction tr[TRANSACTION_CAPTURE_LENGTH];
+static int transaction_count = 0;
+
+int capture_done = 0;
 
 int prev_sda = 1;
 int prev_scl = 1;
@@ -58,31 +61,50 @@ void setup() {
   Serial.printf("  transaction captureing depth    = %6d\n", TRANSACTION_CAPTURE_LENGTH);
   Serial.printf("  transaction maximum byte length = %6d\n", TRANSACTION_MAX_BYTE_LENGTH);
   Serial.printf("  memory size for data capturing  = %6d\n", sizeof(tr));
-
-  pinMode(SDA_PIN, INPUT_PULLUP);
-  pinMode(SCL_PIN, INPUT_PULLUP);
-  pinMode(MONITOR_PIN, OUTPUT);
-
   Serial.printf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
 
-  interrupt_control(false);
+  multicore_launch_core1(core1);
 }
 
 #define SAMPLINF_MONITOR_PERIOD 0xF
 
 void loop() {
-  int all;
+
+  while (1) {
+
+        Serial.printf("transaction_count: %d\n", transaction_count);
+//    Serial.printf("*");
+    if (capture_done) {
+      show_transactions(CAPTURE_LENGTH);
+      capture_done  = 0;
+//      transaction_count = 0;
+      Serial.printf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
+    }
+  }
+}
+
+void core1() {
+  uint32_t all;
   int sda;
   int scl;
   int count = 0;
   int toggle = false;
+
+  pinMode(SDA_PIN, INPUT_PULLUP);
+  pinMode(SCL_PIN, INPUT_PULLUP);
+  pinMode(MONITOR_PIN, OUTPUT);
+
+
   while (true) {
+//    Serial.printf("=");
 
 #if 0
     sda = gpio_get(SDA_PIN);
     scl = gpio_get(SCL_PIN);
 #else
     all = gpio_get_all();
+
+//    Serial.printf("=");
     sda = all & 0x01;
     scl = (all >> 1) & 0x1;
 #endif
@@ -106,7 +128,6 @@ inline void pin_state_change(int sda, int ss) {
   static pa_status state = FREE;
   static int bit_count;
   static int byte_count;
-  static int transaction_count = 0;
   static transaction *t;
   static int repeated_start_flag = 0;
 
@@ -117,18 +138,27 @@ inline void pin_state_change(int sda, int ss) {
       (tr + transaction_count)->stop = true;
 
       transaction_count++;
+      transaction_count %= TRANSACTION_CAPTURE_LENGTH;
+      
+      //Serial.printf("tr: %2d\n", transaction_count);
 
-      //      Serial.printf("tr: %2d\n", transaction_count);
 
+#if 0    
       if (CAPTURE_LENGTH < transaction_count) {
         show_transactions(CAPTURE_LENGTH);
         transaction_count = 0;
         Serial.printf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
       }
+#else
+      if (CAPTURE_LENGTH < transaction_count) {
+        capture_done = 1;
+      }
 
+#endif
     } else {
       if (FREE != state) {
         transaction_count++;
+        transaction_count %= TRANSACTION_CAPTURE_LENGTH;
         (tr + transaction_count)->repeated_start = true;
       } else {
         (tr + transaction_count)->repeated_start = false;
@@ -168,8 +198,6 @@ void show_transactions(int length) {
   transaction *t;
   data_ack *addr;
 
-  interrupt_control(true);
-
   for (int i = 0; i < length; i++) {
     t = tr + i;
     addr = &(t->data_byte[0]);
@@ -182,18 +210,4 @@ void show_transactions(int length) {
 
     Serial.printf("%s\n", t->stop ? " [P]" : "");
   }
-  interrupt_control(false);
-}
-
-void interrupt_control(int flag) {
-  static uint32_t ints = 0;
-  return;
-
-  if (!ints)
-    ints = save_and_disable_interrupts();
-
-  if (flag)
-    restore_interrupts(ints);
-  else
-    ints = save_and_disable_interrupts();
 }
