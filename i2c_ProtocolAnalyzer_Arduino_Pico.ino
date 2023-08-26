@@ -43,7 +43,6 @@ int total_count = 0;
 
 inline void pin_state_change(int sda, int startstop = false);
 void show_transactions(int length);
-void zprintf(const char *format, ...);
 
 /*
  *  Program body
@@ -54,16 +53,16 @@ void setup() {
   while (!Serial)
     ;
 
-  zprintf("I2C protocol analyzer started\n");
-  zprintf("  transaction captureing depth    = %6d\n", TRANSACTION_CAPTURE_LENGTH);
-  zprintf("  transaction maximum byte length = %6d\n", TRANSACTION_MAX_BYTE_LENGTH);
-  zprintf("  memory size for data capturing  = %6d\n", sizeof(tr));
+  Serial.printf("I2C protocol analyzer started\n");
+  Serial.printf("  transaction captureing depth    = %6d\n", TRANSACTION_CAPTURE_LENGTH);
+  Serial.printf("  transaction maximum byte length = %6d\n", TRANSACTION_MAX_BYTE_LENGTH);
+  Serial.printf("  memory size for data capturing  = %6d\n", sizeof(tr));
 
   pinMode(SDA_PIN, INPUT_PULLUP);
   pinMode(SCL_PIN, INPUT_PULLUP);
   pinMode(MONITOR_PIN, OUTPUT);
 
-  zprintf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
+  Serial.printf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
 }
 
 #define SAMPLINF_MONITOR_PERIOD 0xF
@@ -116,12 +115,12 @@ inline void pin_state_change(int sda, int ss) {
 
       transaction_count++;
 
-      //      zprintf("tr: %2d\n", transaction_count);
+      //      Serial.printf("tr: %2d\n", transaction_count);
 
       if (CAPTURE_LENGTH < transaction_count) {
         show_transactions(CAPTURE_LENGTH);
         transaction_count = 0;
-        zprintf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
+        Serial.printf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
       }
 
     } else {
@@ -170,24 +169,12 @@ void show_transactions(int length) {
     t = tr + i;
     addr = &(t->data_byte[0]);
 
-    zprintf("#%2d (%2d) : [%c]", i, t->length - 1, t->repeated_start ? 'R' : 'S');
-    zprintf(" 0x%02X-%c[%c]", addr->data & ~0x01, (addr->data) & 0x01 ? 'R' : 'W', addr->ack ? 'N' : 'A');
+    Serial.printf("#%2d (%2d) : [%c]", i, t->length - 1, t->repeated_start ? 'R' : 'S');
+    Serial.printf(" 0x%02X-%c[%c]", addr->data & ~0x01, (addr->data) & 0x01 ? 'R' : 'W', addr->ack ? 'N' : 'A');
 
     for (int j = 1; j < t->length; j++)
-      zprintf(" 0x%02X[%c]", t->data_byte[j].data, t->data_byte[j].ack ? 'N' : 'A');
+      Serial.printf(" 0x%02X[%c]", t->data_byte[j].data, t->data_byte[j].ack ? 'N' : 'A');
 
-    zprintf("%s\n", t->stop ? " [P]" : "");
+    Serial.printf("%s\n", t->stop ? " [P]" : "");
   }
-}
-
-#define MAX_STR_LENGTH 120
-void zprintf(const char *format, ...) {
-  char s[MAX_STR_LENGTH];
-  va_list args;
-
-  va_start(args, format);
-  vsnprintf(s, MAX_STR_LENGTH, format, args);
-  va_end(args);
-
-  Serial.print(s);
 }
