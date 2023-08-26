@@ -6,7 +6,7 @@ constexpr int SDA_PIN = 0;
 constexpr int SCL_PIN = 1;
 constexpr int MONITOR_PIN = 2;
 
-constexpr int TRANSACTION_CAPTURE_LENGTH = 64;
+constexpr int TRANSACTION_CAPTURE_LENGTH = 32;
 constexpr int TRANSACTION_MAX_BYTE_LENGTH = 128;
 constexpr int CAPTURE_LENGTH = 10;
 
@@ -43,6 +43,7 @@ int total_count = 0;
 
 inline void pin_state_change(int sda, int startstop = false);
 void show_transactions(int length);
+void interrupt_control(int flag);
 
 /*
  *  Program body
@@ -63,6 +64,8 @@ void setup() {
   pinMode(MONITOR_PIN, OUTPUT);
 
   Serial.printf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
+
+  interrupt_control(false);
 }
 
 #define SAMPLINF_MONITOR_PERIOD 0xF
@@ -165,6 +168,8 @@ void show_transactions(int length) {
   transaction *t;
   data_ack *addr;
 
+  interrupt_control(true);
+
   for (int i = 0; i < length; i++) {
     t = tr + i;
     addr = &(t->data_byte[0]);
@@ -177,4 +182,18 @@ void show_transactions(int length) {
 
     Serial.printf("%s\n", t->stop ? " [P]" : "");
   }
+  interrupt_control(false);
+}
+
+void interrupt_control(int flag) {
+  static uint32_t ints = 0;
+  return;
+
+  if (!ints)
+    ints = save_and_disable_interrupts();
+
+  if (flag)
+    restore_interrupts(ints);
+  else
+    ints = save_and_disable_interrupts();
 }
