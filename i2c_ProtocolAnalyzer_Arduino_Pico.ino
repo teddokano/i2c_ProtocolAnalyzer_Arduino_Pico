@@ -8,7 +8,7 @@ constexpr int MONITOR_PIN = 2;
 
 constexpr int TRANSACTION_CAPTURE_LENGTH = 64;
 constexpr int TRANSACTION_MAX_BYTE_LENGTH = 128;
-constexpr int CAPTURE_LENGTH = 10;
+constexpr int CAPTURE_LENGTH = 20;
 
 enum pa_status : int {
   FREE = 0,
@@ -53,16 +53,16 @@ void setup() {
   while (!Serial)
     ;
 
-  Serial.printf("I2C protocol analyzer started\n");
-  Serial.printf("  transaction captureing depth    = %6d\n", TRANSACTION_CAPTURE_LENGTH);
-  Serial.printf("  transaction maximum byte length = %6d\n", TRANSACTION_MAX_BYTE_LENGTH);
-  Serial.printf("  memory size for data capturing  = %6d\n", sizeof(tr));
+  printf("I2C protocol analyzer started\n");
+  printf("  transaction captureing depth    = %6d\n", TRANSACTION_CAPTURE_LENGTH);
+  printf("  transaction maximum byte length = %6d\n", TRANSACTION_MAX_BYTE_LENGTH);
+  printf("  memory size for data capturing  = %6d\n", sizeof(tr));
 
   pinMode(SDA_PIN, INPUT_PULLUP);
   pinMode(SCL_PIN, INPUT_PULLUP);
   pinMode(MONITOR_PIN, OUTPUT);
 
-  Serial.printf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
+  printf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
 }
 
 #define SAMPLINF_MONITOR_PERIOD 0xF
@@ -73,6 +73,7 @@ void loop() {
   int scl;
   int count = 0;
   int toggle = false;
+
   while (true) {
 
 #if 0
@@ -115,12 +116,12 @@ inline void pin_state_change(int sda, int ss) {
 
       transaction_count++;
 
-      //      Serial.printf("tr: %2d\n", transaction_count);
+      //      printf("tr: %2d\n", transaction_count);
 
       if (CAPTURE_LENGTH < transaction_count) {
         show_transactions(CAPTURE_LENGTH);
         transaction_count = 0;
-        Serial.printf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
+        printf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
       }
 
     } else {
@@ -169,12 +170,12 @@ void show_transactions(int length) {
     t = tr + i;
     addr = &(t->data_byte[0]);
 
-    Serial.printf("#%2d (%2d) : [%c]", i, t->length - 1, t->repeated_start ? 'R' : 'S');
-    Serial.printf(" 0x%02X-%c[%c]", addr->data & ~0x01, (addr->data) & 0x01 ? 'R' : 'W', addr->ack ? 'N' : 'A');
+    printf("#%2d (%2d) : [%c]", i, t->length - 1, t->repeated_start ? 'R' : 'S');
+    printf(" 0x%02X-%c[%c]", addr->data & ~0x01, (addr->data) & 0x01 ? 'R' : 'W', addr->ack ? 'N' : 'A');
 
     for (int j = 1; j < t->length; j++)
-      Serial.printf(" 0x%02X[%c]", t->data_byte[j].data, t->data_byte[j].ack ? 'N' : 'A');
+      printf(" 0x%02X[%c]", t->data_byte[j].data, t->data_byte[j].ack ? 'N' : 'A');
 
-    Serial.printf("%s\n", t->stop ? " [P]" : "");
+    printf("%s\n", t->stop ? " [P]" : "");
   }
 }
