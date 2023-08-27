@@ -33,6 +33,8 @@ typedef struct {
 } transaction;
 
 transaction tr[TRANSACTION_CAPTURE_LENGTH];
+static int transaction_count = 0;
+
 
 int prev_sda = 1;
 int prev_scl = 1;
@@ -122,7 +124,6 @@ inline void pin_state_change(int sda, int ss) {
   static pa_status state = FREE;
   static int bit_count;
   static int byte_count;
-  static int transaction_count = 0;
   static transaction *t;
   static int repeated_start_flag = 0;
 
@@ -132,29 +133,18 @@ inline void pin_state_change(int sda, int ss) {
 
       (tr + transaction_count)->stop = true;
 
-      transaction_count++;
-
-      //      Serial.printf("tr: %2d\n", transaction_count);
-
       if (CAPTURE_LENGTH < transaction_count) {
         show_transactions(CAPTURE_LENGTH);
         transaction_count = 0;
         Serial.printf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
       }
-
     } else {
-      if (FREE != state) {
-        transaction_count++;
-        (tr + transaction_count)->repeated_start = true;
-      } else {
-        (tr + transaction_count)->repeated_start = false;
-      }
-
+  
       state = START;
       bit_count = 0;
       byte_count = 0;
 
-      t = tr + transaction_count;
+      t = tr + transaction_count++;
       t->stop = false;
     }
     return;
