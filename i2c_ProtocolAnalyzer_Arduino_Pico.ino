@@ -7,7 +7,7 @@ constexpr int SCL_PIN = 1;
 constexpr int VITAL0_PIN = 2;
 constexpr int VITAL1_PIN = 3;
 
-constexpr int TRANSACTION_BUFFER_DEPTH = 32;
+constexpr int TRANSACTION_BUFFER_DEPTH = 10;
 constexpr int TRANSACTION_MAX_BYTE_LENGTH = 128;
 constexpr int CAPTURE_LENGTH = 10;
 
@@ -55,7 +55,7 @@ void show_transactions(int length);
  */
 
 void setup() {
-  Serial.begin(115200); // baudrate setting is ignored : https://arduino-pico.readthedocs.io/en/latest/serial.html
+  Serial.begin(115200);  // baudrate setting is ignored : https://arduino-pico.readthedocs.io/en/latest/serial.html
   while (!Serial)
     ;
 
@@ -64,7 +64,7 @@ void setup() {
   Serial.printf("  transaction maximum byte length = %6d\n", TRANSACTION_MAX_BYTE_LENGTH);
   Serial.printf("  memory size for data capturing  = %6d\n", sizeof(tr));
 
-  Serial.printf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
+  Serial.printf("[%d] captureing transactions\n", total_count++);
 
 #if 0
   core1_main();
@@ -136,22 +136,10 @@ inline void pin_state_change(int sda, int ss) {
 
       (tr + transaction_count)->stop = true;
 
-      //      Serial.printf("tr: %2d\n", transaction_count);
-
       captured = transaction_count;
 
       transaction_count++;
       transaction_count %= TRANSACTION_BUFFER_DEPTH;
-#if 0
-      if (CAPTURE_LENGTH < transaction_count) {
-        show_transactions(CAPTURE_LENGTH);
-        transaction_count = 0;
-        Serial.printf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
-      }
-#endif
-
-
-
 
     } else {
       if (FREE != state) {
@@ -195,6 +183,7 @@ inline void pin_state_change(int sda, int ss) {
 
 void show_transactions(int captured) {
   static int shown = -1;
+  static uint32_t tr_num = 0;
   transaction *t;
   data_ack *addr;
 
@@ -204,16 +193,19 @@ void show_transactions(int captured) {
   int length = ((captured + TRANSACTION_BUFFER_DEPTH) - shown) % TRANSACTION_BUFFER_DEPTH;
 
   for (int i = 0; i < length; i++) {
-    t = tr + ((shown + i) % TRANSACTION_BUFFER_DEPTH);
+    int t_index = ((shown + i) % TRANSACTION_BUFFER_DEPTH);
+    t = tr + t_index;
     addr = &(t->data_byte[0]);
 
-    Serial.printf("#%2d (%2d) : [%c]", i, t->length - 1, t->repeated_start ? 'R' : 'S');
+    Serial.printf("#%5d (%2d) : [%c]", tr_num, t->length - 1, t->repeated_start ? 'R' : 'S');
     Serial.printf(" 0x%02X-%c[%c]", addr->data & ~0x01, (addr->data) & 0x01 ? 'R' : 'W', addr->ack ? 'N' : 'A');
 
     for (int j = 1; j < t->length; j++)
       Serial.printf(" 0x%02X[%c]", t->data_byte[j].data, t->data_byte[j].ack ? 'N' : 'A');
 
     Serial.printf("%s\n", t->stop ? " [P]" : "");
+
+    tr_num++;
   }
 
   shown = captured;
