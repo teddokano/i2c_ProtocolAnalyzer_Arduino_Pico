@@ -43,7 +43,8 @@ int total_count = 0;
 
 inline void pin_state_change(int sda, int startstop = false);
 void show_transactions(int length);
-void interrupt_control(int flag);
+
+#define SAMPLINF_MONITOR_PERIOD 0xF
 
 /*
  *  Program body
@@ -59,23 +60,41 @@ void setup() {
   Serial.printf("  transaction maximum byte length = %6d\n", TRANSACTION_MAX_BYTE_LENGTH);
   Serial.printf("  memory size for data capturing  = %6d\n", sizeof(tr));
 
-  pinMode(SDA_PIN, INPUT_PULLUP);
-  pinMode(SCL_PIN, INPUT_PULLUP);
-  pinMode(MONITOR_PIN, OUTPUT);
-
   Serial.printf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
 
-  interrupt_control(false);
+#if 0
+  core1_main();
+#else
+  multicore_launch_core1(core1_main);
+#endif
+
+  pinMode(3, OUTPUT);
+
+  int toggle = 0;
+  int count = 0;
+  while (1) {
+        if (!(count & SAMPLINF_MONITOR_PERIOD))
+      gpio_put(3, (toggle = !toggle));
+
+    count++;
+  }
 }
 
-#define SAMPLINF_MONITOR_PERIOD 0xF
 
 void loop() {
+}
+
+void core1_main() {
   int all;
   int sda;
   int scl;
   int count = 0;
   int toggle = false;
+
+  pinMode(SDA_PIN, INPUT_PULLUP);
+  pinMode(SCL_PIN, INPUT_PULLUP);
+  pinMode(MONITOR_PIN, OUTPUT);
+
   while (true) {
 
 #if 0
@@ -168,8 +187,6 @@ void show_transactions(int length) {
   transaction *t;
   data_ack *addr;
 
-  interrupt_control(true);
-
   for (int i = 0; i < length; i++) {
     t = tr + i;
     addr = &(t->data_byte[0]);
@@ -182,18 +199,4 @@ void show_transactions(int length) {
 
     Serial.printf("%s\n", t->stop ? " [P]" : "");
   }
-  interrupt_control(false);
-}
-
-void interrupt_control(int flag) {
-  static uint32_t ints = 0;
-  return;
-
-  if (!ints)
-    ints = save_and_disable_interrupts();
-
-  if (flag)
-    restore_interrupts(ints);
-  else
-    ints = save_and_disable_interrupts();
 }
