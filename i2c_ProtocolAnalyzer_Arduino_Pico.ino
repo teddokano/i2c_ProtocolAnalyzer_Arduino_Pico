@@ -7,7 +7,7 @@ constexpr int SCL_PIN = 1;
 constexpr int VITAL0_PIN = 2;
 constexpr int VITAL1_PIN = 3;
 
-constexpr int TRANSACTION_CAPTURE_LENGTH = 32;
+constexpr int TRANSACTION_BUFFER_DEPTH = 32;
 constexpr int TRANSACTION_MAX_BYTE_LENGTH = 128;
 constexpr int CAPTURE_LENGTH = 10;
 
@@ -32,9 +32,10 @@ typedef struct {
   int stop;
 } transaction;
 
-transaction tr[TRANSACTION_CAPTURE_LENGTH];
-static int transaction_count = 0;
+transaction tr[TRANSACTION_BUFFER_DEPTH];
+volatile int transaction_count = 0;
 
+volatile int captured = 0;
 
 int prev_sda = 1;
 int prev_scl = 1;
@@ -54,12 +55,12 @@ void show_transactions(int length);
  */
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(115200); // baudrate setting is ignored : https://arduino-pico.readthedocs.io/en/latest/serial.html
   while (!Serial)
     ;
 
   Serial.printf("I2C protocol analyzer started\n");
-  Serial.printf("  transaction captureing depth    = %6d\n", TRANSACTION_CAPTURE_LENGTH);
+  Serial.printf("  transaction captureing depth    = %6d\n", TRANSACTION_BUFFER_DEPTH);
   Serial.printf("  transaction maximum byte length = %6d\n", TRANSACTION_MAX_BYTE_LENGTH);
   Serial.printf("  memory size for data capturing  = %6d\n", sizeof(tr));
 
@@ -76,6 +77,8 @@ void setup() {
   int toggle = 0;
   int count = 0;
   while (1) {
+    show_transactions(captured);
+
     if (!(count++ & SAMPLINF_MONITOR_PERIOD))
       gpio_put(VITAL1_PIN, (toggle = !toggle));
   }
@@ -133,18 +136,38 @@ inline void pin_state_change(int sda, int ss) {
 
       (tr + transaction_count)->stop = true;
 
+      //      Serial.printf("tr: %2d\n", transaction_count);
+
+      captured = transaction_count;
+
+      transaction_count++;
+      transaction_count %= TRANSACTION_BUFFER_DEPTH;
+#if 0
       if (CAPTURE_LENGTH < transaction_count) {
         show_transactions(CAPTURE_LENGTH);
         transaction_count = 0;
         Serial.printf("[%d] captureing %d transactions\n", total_count++, CAPTURE_LENGTH);
       }
+#endif
+
+
+
+
     } else {
-  
+      if (FREE != state) {
+        transaction_count++;
+        transaction_count %= TRANSACTION_BUFFER_DEPTH;
+
+        (tr + transaction_count)->repeated_start = true;
+      } else {
+        (tr + transaction_count)->repeated_start = false;
+      }
+
       state = START;
       bit_count = 0;
       byte_count = 0;
 
-      t = tr + transaction_count++;
+      t = tr + transaction_count;
       t->stop = false;
     }
     return;
@@ -170,12 +193,18 @@ inline void pin_state_change(int sda, int ss) {
   }
 }
 
-void show_transactions(int length) {
+void show_transactions(int captured) {
+  static int shown = -1;
   transaction *t;
   data_ack *addr;
 
+  if (shown == captured)
+    return;
+
+  int length = ((captured + TRANSACTION_BUFFER_DEPTH) - shown) % TRANSACTION_BUFFER_DEPTH;
+
   for (int i = 0; i < length; i++) {
-    t = tr + i;
+    t = tr + ((shown + i) % TRANSACTION_BUFFER_DEPTH);
     addr = &(t->data_byte[0]);
 
     Serial.printf("#%2d (%2d) : [%c]", i, t->length - 1, t->repeated_start ? 'R' : 'S');
@@ -186,4 +215,6 @@ void show_transactions(int length) {
 
     Serial.printf("%s\n", t->stop ? " [P]" : "");
   }
+
+  shown = captured;
 }
