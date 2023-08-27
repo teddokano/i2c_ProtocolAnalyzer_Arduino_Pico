@@ -4,7 +4,8 @@
 
 constexpr int SDA_PIN = 0;
 constexpr int SCL_PIN = 1;
-constexpr int MONITOR_PIN = 2;
+constexpr int VITAL0_PIN = 2;
+constexpr int VITAL1_PIN = 3;
 
 constexpr int TRANSACTION_CAPTURE_LENGTH = 32;
 constexpr int TRANSACTION_MAX_BYTE_LENGTH = 128;
@@ -68,15 +69,13 @@ void setup() {
   multicore_launch_core1(core1_main);
 #endif
 
-  pinMode(3, OUTPUT);
+  pinMode(VITAL1_PIN, OUTPUT);
 
   int toggle = 0;
   int count = 0;
   while (1) {
-        if (!(count & SAMPLINF_MONITOR_PERIOD))
-      gpio_put(3, (toggle = !toggle));
-
-    count++;
+    if (!(count++ & SAMPLINF_MONITOR_PERIOD))
+      gpio_put(VITAL1_PIN, (toggle = !toggle));
   }
 }
 
@@ -93,7 +92,7 @@ void core1_main() {
 
   pinMode(SDA_PIN, INPUT_PULLUP);
   pinMode(SCL_PIN, INPUT_PULLUP);
-  pinMode(MONITOR_PIN, OUTPUT);
+  pinMode(VITAL0_PIN, OUTPUT);
 
   while (true) {
 
@@ -114,10 +113,8 @@ void core1_main() {
     prev_sda = sda;
     prev_scl = scl;
 
-    if (!(count & SAMPLINF_MONITOR_PERIOD))
-      gpio_put(MONITOR_PIN, (toggle = !toggle));
-
-    count++;
+    if (!(count++ & SAMPLINF_MONITOR_PERIOD))
+      gpio_put(VITAL0_PIN, (toggle = !toggle));
   }
 }
 
