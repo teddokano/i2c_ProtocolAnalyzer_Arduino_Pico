@@ -4,8 +4,11 @@
 
 constexpr int SDA_PIN = 0;
 constexpr int SCL_PIN = 1;
+
 constexpr int VITAL0_PIN = 2;
 constexpr int VITAL1_PIN = 3;
+
+constexpr int LED_PIN = 25;
 
 constexpr int TRANSACTION_BUFFER_DEPTH = 32;
 constexpr int TRANSACTION_MAX_BYTE_LENGTH = 128;
@@ -96,6 +99,7 @@ void core1_main() {
   pinMode(SDA_PIN, INPUT_PULLUP);
   pinMode(SCL_PIN, INPUT_PULLUP);
   pinMode(VITAL0_PIN, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
 
   while (true) {
 
@@ -147,8 +151,6 @@ inline void pin_state_change(int sda, int ss) {
       } else {
         transaction_count++;
       }
-
-
 #endif
 
     } else {
@@ -168,6 +170,9 @@ inline void pin_state_change(int sda, int ss) {
       t = tr + transaction_count;
       t->stop = false;
     }
+
+    gpio_put(LED_PIN, state);
+
     return;
   }
 
@@ -200,7 +205,7 @@ void show_transactions(int length) {
     t = tr + i;
     addr = &(t->data_byte[0]);
 
-    Serial.printf("#%5ul (%2d) : [%c]", tr_num, t->length - 1, t->repeated_start ? 'R' : 'S');
+    Serial.printf("#%5lu (%2d) : [%c]", tr_num, t->length - 1, t->repeated_start ? 'R' : 'S');
     Serial.printf(" 0x%02X-%c[%c]", addr->data & ~0x01, (addr->data) & 0x01 ? 'R' : 'W', addr->ack ? 'N' : 'A');
 
     for (int j = 1; j < t->length; j++)
