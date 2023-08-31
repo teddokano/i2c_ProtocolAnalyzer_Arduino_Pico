@@ -11,7 +11,8 @@ I²C ProtocolAnalyzer using Arduino-Pico.
 
 > **Note**  
 > To get best performance, choose optimization seting of "-O2" or "-O3".  
-> This optimization setting gives stable performance to capture 400kHz I²C transfers. 
+> This optimization setting gives stable performance to capture 400kHz I²C transfers.  
+
 ![optimization_setting.png](https://github.com/teddokano/i2c_ProtocolAnalyzer_Arduino_Pico/blob/main/reference/pic/optimization_setting.png)
 _Choosing a optimization option_
 
